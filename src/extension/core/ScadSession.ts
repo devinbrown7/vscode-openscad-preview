@@ -5,13 +5,14 @@ import { ScadClient } from "../services/ScadClient";
 import { ScadParser } from "../services/ScadParser";
 import { ScadRenderer } from "../services/ScadRenderer";
 import { FileWatcher } from "../services/ScadWatcher";
+import { PreviewSession } from "./PreviewSession";
 import { ScadParameters } from "./ScadParameters";
 
 /**
  * Represents a single SCAD document session.
  * Decouples the file watching and parameter parsing from any specific Webview Panel UI.
  */
-export class ScadSession {
+export class ScadSession implements PreviewSession {
   private scadWatcher: FileWatcher;
   private jsonWatcher?: FileWatcher;
   private scadParameters: ScadParameters;
