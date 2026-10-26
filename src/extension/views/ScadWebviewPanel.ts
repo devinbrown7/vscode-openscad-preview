@@ -18,11 +18,20 @@ import { WebviewToExtensionMessage } from "../../shared/types/WebviewToExtension
 import { PreviewSession } from "../core/PreviewSession";
 import { PreviewPanelOptions } from "./PreviewPanelOptions";
 
+type LoadingState = Extract<
+  ExtensionToWebviewMessage,
+  { type: "loadingState" }
+>;
+
 export class ScadWebviewPanel {
   private readonly panel: WebviewPanel;
   private disposables: Disposable[] = [];
   private isWebviewReady: boolean = false;
   private lastRender: { base64Data: string; format: ModelFormat } | undefined;
+  // The latest render's loading state and log. A render can start, log and
+  // even fail before the webview is ready, so a new webview gets them too.
+  private loadingState: LoadingState | undefined;
+  private renderLog: string[] = [];
 
   private get sceneStateKey(): string {
     return `openscad.scene.${this.session.documentUri.toString()}`;
@@ -113,7 +122,8 @@ export class ScadWebviewPanel {
     // Subscribe to session events
     this.session.onRenderStarted(
       () => {
-        this.postMessage({
+        this.renderLog = [];
+        this.setLoadingState({
           type: "loadingState",
           loading: true,
           message: "Generating model...",
@@ -126,7 +136,7 @@ export class ScadWebviewPanel {
     this.session.onRenderCompleted(
       ({ buffer, format }) => {
         if (buffer.toString() === "loading") {
-          this.postMessage({
+          this.setLoadingState({
             type: "loadingState",
             loading: true,
             message: "Loading model...",
@@ -134,6 +144,8 @@ export class ScadWebviewPanel {
           return;
         }
 
+        // The update itself clears the webview's loading state.
+        this.loadingState = undefined;
         const base64Data = buffer.toString("base64");
         this.lastRender = { base64Data, format };
         this.postMessage({
@@ -149,7 +161,7 @@ export class ScadWebviewPanel {
     this.session.onRenderError(
       (err) => {
         // Clear the loading spinner so the webview doesn't hang indefinitely.
-        this.postMessage({
+        this.setLoadingState({
           type: "loadingState",
           loading: false,
         });
@@ -176,12 +188,7 @@ export class ScadWebviewPanel {
         }
 
         // Also forward the first line of the error to the webview log panel.
-        if (this.isWebviewReady) {
-          this.postMessage({
-            type: "log",
-            message: `ERROR: ${msg}`,
-          });
-        }
+        this.postLog(`ERROR: ${msg}`);
       },
       null,
       this.disposables,
@@ -204,14 +211,7 @@ export class ScadWebviewPanel {
     );
 
     this.session.onLog(
-      (message) => {
-        if (this.isWebviewReady) {
-          this.postMessage({
-            type: "log",
-            message,
-          });
-        }
-      },
+      (message) => this.postLog(message),
       null,
       this.disposables,
     );
@@ -308,6 +308,28 @@ export class ScadWebviewPanel {
         content: this.lastRender.base64Data,
         format: this.lastRender.format,
       });
+    }
+
+    // Then the latest render's loading state and log, which the webview
+    // misses if the render ran before it was ready.
+    if (this.loadingState) {
+      this.postMessage(this.loadingState);
+    }
+    for (const message of this.renderLog) {
+      this.postMessage({ type: "log", message });
+    }
+  }
+
+  private setLoadingState(state: LoadingState) {
+    this.loadingState = state;
+    this.postMessage(state);
+  }
+
+  /** Sends a chunk of the latest render's log, and keeps it for a new webview. */
+  private postLog(message: string) {
+    this.renderLog.push(message);
+    if (this.isWebviewReady) {
+      this.postMessage({ type: "log", message });
     }
   }
 
