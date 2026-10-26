@@ -1,6 +1,7 @@
 import { Event, Uri } from "vscode";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { ScadParameter } from "../../shared/types/ScadParameter";
+import { SourceLocation } from "../../shared/types/SourceLocation";
 
 /** A finished render: the model file and its format. */
 export interface RenderResult {
@@ -44,4 +45,11 @@ export interface PreviewSession {
 
   /** Renders the model in the given format, for export. */
   exportFormat(format: ModelFormat): Promise<Buffer>;
+
+  /**
+   * Where a named 3MF material of an object comes from, for sessions
+   * whose models name them after their source. Ctrl+click (Cmd+click on
+   * macOS) on the material opens it.
+   */
+  locateMaterial?(object: string, material: string): SourceLocation | undefined;
 }

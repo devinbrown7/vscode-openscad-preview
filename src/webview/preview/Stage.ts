@@ -48,7 +48,7 @@ import { MeasureTool } from "./tools/MeasureTool";
 import { MoveTool } from "./tools/MoveTool";
 import { RotateTool } from "./tools/RotateTool";
 import { ScaleTool } from "./tools/ScaleTool";
-import { SelectTool } from "./tools/SelectTool";
+import { HoveredMaterial, SelectTool } from "./tools/SelectTool";
 import { AxesWidget } from "./widgets/AxesWidget";
 
 export interface Theme {
@@ -115,6 +115,8 @@ export class Stage {
     | null = null;
 
   private onPersist: (() => void) | null = null;
+
+  private onOpenMaterial: ((material: HoveredMaterial) => void) | null = null;
 
   constructor(container: HTMLElement, theme: Theme) {
     this.container = container;
@@ -582,6 +584,12 @@ export class Stage {
     this.onPersist = cb;
   }
 
+  public setOpenMaterialCallback(
+    cb: (material: HoveredMaterial) => void,
+  ): void {
+    this.onOpenMaterial = cb;
+  }
+
   private createCameraRig(id: string): CameraRig {
     const size = this.renderer.getSize(new Vector2());
     const rig = new CameraRig(
@@ -669,6 +677,7 @@ export class Stage {
       modelGroup: this.modelGroup,
       scene: this.scene,
       color: this.theme.accent,
+      openMaterial: (material) => this.onOpenMaterial?.(material),
     });
   }
 

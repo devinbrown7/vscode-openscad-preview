@@ -331,6 +331,9 @@ export class App extends LitElement {
         },
       );
       this.previewEl.stage.setPersistCallback(() => this.schedulePersist());
+      this.previewEl.stage.setOpenMaterialCallback(({ object, material }) =>
+        bridge.openMaterial(object, material),
+      );
       this.previewEl.stage.setObjectRegisteredCallback((id, type) => {
         const count =
           this.sceneContextValue.objects.filter((o) => o.type === type).length +

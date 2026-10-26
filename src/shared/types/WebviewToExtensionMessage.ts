@@ -15,4 +15,5 @@ export type WebviewToExtensionMessage =
   | { type: "sendToSlicer" }
   | { type: "persistScene"; snapshot: unknown }
   | { type: "openLocation"; location: SourceLocation }
+  | { type: "openMaterial"; object: string; material: string }
   | { type: "error"; message: string };
