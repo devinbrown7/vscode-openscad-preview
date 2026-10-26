@@ -85,6 +85,7 @@ export class Stage {
   private xrayPass: XRayPass;
 
   private modelGroup: Group;
+  private framedFirstModel = false;
   private axesWidget: AxesWidget;
   private viewOptions?: ViewOptionsContext;
 
@@ -345,6 +346,13 @@ export class Stage {
     } else {
       const diagonal = bounds.getSize(new Vector3()).length();
       this.xrayPass.setAbsorption(diagonal > 0 ? 3 / diagonal : 0);
+    }
+
+    // The first model frames a camera that hasn't moved, so a model of any
+    // size, anywhere, shows whole. Later loads keep the view.
+    if (!this.framedFirstModel && !bounds.isEmpty()) {
+      this.framedFirstModel = true;
+      if (this.activeCameraRig.isAtStart()) this.activeCameraRig.frame(bounds);
     }
 
     // Rebuild cross-section stencils for updated geometry, then reapply all clip planes
