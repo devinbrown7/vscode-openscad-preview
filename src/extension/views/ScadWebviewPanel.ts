@@ -117,6 +117,14 @@ export class ScadWebviewPanel {
           case "openLocation":
             this.openLocation(message.location);
             return;
+          case "openMaterial": {
+            const location = this.session.locateMaterial?.(
+              message.object,
+              message.material,
+            );
+            if (location) this.openLocation(location);
+            return;
+          }
           case "error":
             window.showErrorMessage(`Preview Error: ${message.message}`);
             return;
@@ -475,7 +483,10 @@ export class ScadWebviewPanel {
       path.dirname(this.session.documentUri.fsPath),
       location.file,
     );
-    const position = new Position(Math.max(location.line - 1, 0), 0);
+    const position = new Position(
+      Math.max(location.line - 1, 0),
+      Math.max((location.column ?? 1) - 1, 0),
+    );
     try {
       const document = await workspace.openTextDocument(Uri.file(file));
       const shows = (uri: Uri) =>

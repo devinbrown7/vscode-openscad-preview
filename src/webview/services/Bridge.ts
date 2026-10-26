@@ -65,6 +65,10 @@ export class Bridge {
     vscode.postMessage({ type: "openLocation", location });
   }
 
+  public openMaterial(object: string, material: string) {
+    vscode.postMessage({ type: "openMaterial", object, material });
+  }
+
   public persistScene(snapshot: unknown) {
     vscode.postMessage({ type: "persistScene", snapshot });
   }
