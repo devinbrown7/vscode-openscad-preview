@@ -211,7 +211,7 @@ export class Stage {
 
     // 8. Default tool
     this.toolManager.setBindings({ canvas: this.renderer.domElement });
-    this.toolManager.switchTo(new SelectTool());
+    this.toolManager.switchTo(this.createSelectTool());
 
     // 9. Start
     this.startAnimationLoop();
@@ -640,7 +640,7 @@ export class Stage {
     switch (tool) {
       default:
       case ActiveTool.Select:
-        return new SelectTool();
+        return this.createSelectTool();
       case ActiveTool.Move:
         return new MoveTool();
       case ActiveTool.Rotate:
@@ -660,6 +660,16 @@ export class Stage {
           addObject: (rig, type) => this.addObject(rig, type),
         });
     }
+  }
+
+  private createSelectTool() {
+    return new SelectTool({
+      raycaster: this.raycaster,
+      camera: () => this.activeCameraRig.activeCamera,
+      modelGroup: this.modelGroup,
+      scene: this.scene,
+      color: this.theme.accent,
+    });
   }
 
   public setToolVariant(variant: string | null): void {
