@@ -19,6 +19,8 @@ export interface SelectToolContext {
   modelGroup: Group;
   scene: Scene;
   color: Color;
+  /** Ctrl+click (Cmd+click on macOS) on a named material. */
+  openMaterial: (material: HoveredMaterial) => void;
 }
 
 /** A named material under the pointer: the object it's on, and its name. */
@@ -64,14 +66,14 @@ export class SelectTool implements Tool {
     this.canvas = bindings.canvas;
     this.canvas.addEventListener("pointermove", this.handleMove);
     this.canvas.addEventListener("pointerleave", this.clear);
-    this.canvas.addEventListener("pointerdown", this.clear);
+    this.canvas.addEventListener("pointerdown", this.handleDown);
     this.ctx.scene.add(this.label);
   }
 
   deactivate(): void {
     this.canvas?.removeEventListener("pointermove", this.handleMove);
     this.canvas?.removeEventListener("pointerleave", this.clear);
-    this.canvas?.removeEventListener("pointerdown", this.clear);
+    this.canvas?.removeEventListener("pointerdown", this.handleDown);
     this.canvas = null;
     this.clear();
     this.ctx.scene.remove(this.label);
@@ -112,6 +114,13 @@ export class SelectTool implements Tool {
     this.label.element.textContent = materialOf(mesh).name;
     this.label.position.copy(hit.point);
     this.label.visible = true;
+  };
+
+  private handleDown = (e: PointerEvent) => {
+    const hovered = this.hoveredMaterial;
+    this.clear();
+    if (hovered && e.button === 0 && (e.metaKey || e.ctrlKey))
+      this.ctx.openMaterial(hovered);
   };
 
   private highlight(mesh: Mesh) {
