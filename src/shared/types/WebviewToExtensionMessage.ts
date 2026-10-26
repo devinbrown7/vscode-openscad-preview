@@ -1,3 +1,5 @@
+import { SourceLocation } from "./SourceLocation";
+
 export type WebviewToExtensionMessage =
   | { type: "ready" }
   | {
@@ -12,4 +14,5 @@ export type WebviewToExtensionMessage =
   | { type: "exportModel" }
   | { type: "sendToSlicer" }
   | { type: "persistScene"; snapshot: unknown }
+  | { type: "openLocation"; location: SourceLocation }
   | { type: "error"; message: string };

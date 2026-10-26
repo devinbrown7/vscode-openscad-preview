@@ -1,7 +1,9 @@
 import { consume } from "@lit/context";
 import { css, html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { splitSourceLocations } from "../../../shared/utilities/splitSourceLocations";
 import { logContext, LogContext } from "../../contexts/LogContext";
+import { bridge } from "../../services/Bridge";
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -121,6 +123,12 @@ export class ScadOutput extends LitElement {
     .log-trace-entry {
       padding-left: 16px;
     }
+
+    .log-location {
+      color: var(--vscode-textLink-foreground);
+      cursor: pointer;
+      text-decoration: underline;
+    }
   `;
 
   updated(changedProperties: Map<string | number | symbol, unknown>) {
@@ -145,6 +153,20 @@ export class ScadOutput extends LitElement {
       default:
         return "info";
     }
+  }
+
+  /** The text, with each source location in it as a link to that place. */
+  private renderText(text: string) {
+    return splitSourceLocations(text).map((piece) =>
+      "location" in piece
+        ? html`<a
+            class="log-location"
+            title="Open ${piece.text}"
+            @click=${() => bridge.openLocation(piece.location)}
+            >${piece.text}</a
+          >`
+        : piece.text,
+    );
   }
 
   render() {
@@ -175,7 +197,7 @@ export class ScadOutput extends LitElement {
                   style="color: currentColor"
                   name="${this.getIcon(log.level)}"
                 ></vscode-icon>
-                <div class="log-text">${log.text}</div>
+                <div class="log-text">${this.renderText(log.text)}</div>
               </div>
               ${log.traces.length > 0
                 ? html`
@@ -184,7 +206,9 @@ export class ScadOutput extends LitElement {
                       <div class="log-trace">
                         ${log.traces.map(
                           (trace) =>
-                            html`<div class="log-trace-entry">${trace}</div>`,
+                            html`<div class="log-trace-entry">
+                              ${this.renderText(trace)}
+                            </div>`,
                         )}
                       </div>
                     </details>
