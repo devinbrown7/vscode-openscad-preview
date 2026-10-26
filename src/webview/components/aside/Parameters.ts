@@ -11,6 +11,7 @@ import {
 import "../atoms/Collapsible";
 import "../atoms/Field";
 import "../atoms/NumberField";
+import { formatParameterName } from "../../../shared/utilities/formatParameterName";
 
 declare global {
   interface HTMLElementTagNameMap {
@@ -142,7 +143,7 @@ export class Parameters extends LitElement {
 
               return html`
                 <scad-field
-                  label=${this.formatParameterName(parameter.name, groupName)}
+                  label=${formatParameterName(parameter.name, groupName)}
                   title=${parameter.description}
                 >
                   ${isOverridden
@@ -194,20 +195,6 @@ export class Parameters extends LitElement {
     });
 
     return groups;
-  }
-
-  private formatParameterName(paramName: string, groupName: string): string {
-    const name = paramName
-      .replace(/_/g, " ")
-      .replace(/([A-Z])/g, " $1")
-      .trim()
-      .replace(/\s+/g, " ")
-      .replace(new RegExp(`^${groupName}`, "i"), "");
-
-    return name
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ");
   }
 
   private getCompoundValue(param: ScadParameter): string | number | boolean {
