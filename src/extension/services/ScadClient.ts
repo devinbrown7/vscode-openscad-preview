@@ -2,7 +2,7 @@ import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import { existsSync } from "fs";
 import { readFile, unlink } from "fs/promises";
 import { tmpdir } from "os";
-import { join } from "path";
+import { dirname, join } from "path";
 import { platform } from "process";
 import { window, workspace } from "vscode";
 import { ModelFormat } from "../../shared/types/ModelFormat";
@@ -106,7 +106,10 @@ export class ScadClient {
 
       this.outputChannel.appendLine(`[OpenSCAD] Running: ${execPath} ${args.join(" ")}`);
 
-      const process = spawn(execPath, args);
+      // OpenSCAD writes most file names relative to the rendered file, but
+      // parser errors relative to its working directory. Running it in the
+      // file's directory makes both relative to the file.
+      const process = spawn(execPath, args, { cwd: dirname(scadPath) });
 
       this.activeProcesses.set(scadPath, process);
 

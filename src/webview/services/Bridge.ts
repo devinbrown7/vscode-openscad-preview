@@ -1,4 +1,5 @@
 import { ExtensionToWebviewMessage } from "../../shared/types/ExtensionToWebviewMessage";
+import { SourceLocation } from "../../shared/types/SourceLocation";
 
 const vscode = acquireVsCodeApi();
 
@@ -58,6 +59,10 @@ export class Bridge {
 
   public sendToSlicer() {
     vscode.postMessage({ type: "sendToSlicer" });
+  }
+
+  public openLocation(location: SourceLocation) {
+    vscode.postMessage({ type: "openLocation", location });
   }
 
   public persistScene(snapshot: unknown) {
