@@ -1,5 +1,6 @@
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state, query } from "lit/decorators.js";
+import { snapToStep } from "../../../shared/utilities/snapToStep";
 
 export class NumberFieldInputEvent extends CustomEvent<{ value: number }> {
   static readonly eventName = "input" as const;
@@ -162,18 +163,11 @@ export class ScadNumberField extends LitElement {
 
     let newValue = this.startValue + deltaX * sensitivity;
 
-    // Apply stepping logic
-    if (this.step !== undefined) {
-      const inv = 1.0 / this.step;
-      newValue = Math.round(newValue * inv) / inv;
-    } else {
-      // Just visually avoid nasty floating point fragments
-      newValue = Math.round(newValue * 1000) / 1000;
-    }
+    // Just visually avoid nasty floating point fragments
+    if (this.step === undefined) newValue = Math.round(newValue * 1000) / 1000;
 
-    // Clamp value within explicitly set bounds
-    if (this.min !== undefined) newValue = Math.max(this.min, newValue);
-    if (this.max !== undefined) newValue = Math.min(this.max, newValue);
+    // Snap to the step, counted from min, within the bounds
+    newValue = snapToStep(newValue, this.step, this.min, this.max);
 
     if (newValue !== this.value) {
       this.value = newValue;
