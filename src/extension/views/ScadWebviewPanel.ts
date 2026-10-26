@@ -1,8 +1,11 @@
 import {
   Disposable,
   Memento,
+  Position,
   ProgressLocation,
+  Range,
   Uri,
+  ViewColumn,
   Webview,
   WebviewPanel,
   env,
@@ -14,6 +17,7 @@ import * as path from "path";
 import * as cp from "child_process";
 import { ExtensionToWebviewMessage } from "../../shared/types/ExtensionToWebviewMessage";
 import { ModelFormat } from "../../shared/types/ModelFormat";
+import { SourceLocation } from "../../shared/types/SourceLocation";
 import { WebviewToExtensionMessage } from "../../shared/types/WebviewToExtensionMessage";
 import { ScadSession } from "../core/ScadSession";
 
@@ -98,6 +102,9 @@ export class ScadWebviewPanel {
             return;
           case "persistScene":
             this.workspaceState.update(this.sceneStateKey, message.snapshot);
+            return;
+          case "openLocation":
+            this.openLocation(message.location);
             return;
           case "error":
             window.showErrorMessage(`Preview Error: ${message.message}`);
@@ -412,6 +419,32 @@ export class ScadWebviewPanel {
       );
     } catch (error) {
       window.showErrorMessage(`Failed to send to slicer: ${error}`);
+    }
+  }
+
+  /**
+   * Opens a file from a log line, in the column that shows it, else in the
+   * previewed document's column.
+   */
+  private async openLocation(location: SourceLocation) {
+    const file = path.resolve(
+      path.dirname(this.session.documentUri.fsPath),
+      location.file,
+    );
+    const position = new Position(Math.max(location.line - 1, 0), 0);
+    try {
+      const document = await workspace.openTextDocument(Uri.file(file));
+      const shows = (uri: Uri) =>
+        window.visibleTextEditors.find(
+          (e) => e.document.uri.fsPath === uri.fsPath,
+        );
+      const editor = shows(document.uri) ?? shows(this.session.documentUri);
+      await window.showTextDocument(document, {
+        viewColumn: editor?.viewColumn ?? ViewColumn.One,
+        selection: new Range(position, position),
+      });
+    } catch (error) {
+      window.showErrorMessage(`Could not open ${file}: ${error}`);
     }
   }
 
