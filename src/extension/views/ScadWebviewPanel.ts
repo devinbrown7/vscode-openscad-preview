@@ -237,14 +237,24 @@ export class ScadWebviewPanel {
       ),
     );
 
+    // Only the bundled script runs, and nothing loads from the network.
+    const nonce = crypto.randomUUID().replace(/-/g, "");
+    const csp = [
+      "default-src 'none'",
+      `script-src 'nonce-${nonce}'`,
+      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `font-src ${webview.cspSource}`,
+      `img-src ${webview.cspSource} data: blob:`,
+    ].join("; ");
+
     return /* html */ `
 		<!DOCTYPE html>
 		<html>
 			<head>
 				<meta charset="UTF-8" />
+				<meta http-equiv="Content-Security-Policy" content="${csp}" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>OpenSCAD Preview</title>
-				<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         <link rel="stylesheet" href="${codiconUri}" id="vscode-codicon-stylesheet">
 				<style>
 					body { 
@@ -269,7 +279,7 @@ export class ScadWebviewPanel {
 			</head>
 			<body>
 				<div id="root"></div>
-				<script src="${scriptUri}" type="module"></script>
+				<script nonce="${nonce}" src="${scriptUri}" type="module"></script>
 			</body>
 		</html>
 	`;
