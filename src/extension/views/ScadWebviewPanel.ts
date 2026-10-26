@@ -15,7 +15,8 @@ import * as cp from "child_process";
 import { ExtensionToWebviewMessage } from "../../shared/types/ExtensionToWebviewMessage";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { WebviewToExtensionMessage } from "../../shared/types/WebviewToExtensionMessage";
-import { ScadSession } from "../core/ScadSession";
+import { PreviewSession } from "../core/PreviewSession";
+import { PreviewPanelOptions } from "./PreviewPanelOptions";
 
 export class ScadWebviewPanel {
   private readonly panel: WebviewPanel;
@@ -30,8 +31,9 @@ export class ScadWebviewPanel {
   constructor(
     panel: WebviewPanel,
     private readonly extensionUri: Uri,
-    private readonly session: ScadSession,
+    private readonly session: PreviewSession,
     private readonly workspaceState: Memento,
+    private readonly options: PreviewPanelOptions = {},
   ) {
     this.panel = panel;
 
@@ -155,19 +157,23 @@ export class ScadWebviewPanel {
         // Show the error in the VS Code notification area and direct the user
         // to the output channel for the full OpenSCAD stderr output.
         const msg = err.message;
-        window.showErrorMessage(
-          `OpenSCAD render failed: ${msg.split("\n")[0]}`,
-          "Show Output"
-        ).then((choice) => {
-          if (choice === "Show Output") {
-            // The output channel is named "OpenSCAD Preview" — reveal it.
-            // We can't reference it directly here, but the user can open it
-            // from View > Output and select "OpenSCAD Preview".
-            window.showInformationMessage(
-              'Open the Output panel and select "OpenSCAD Preview" from the dropdown to see the full error.'
-            );
-          }
-        });
+        if (this.options.notifyRenderErrors ?? true) {
+          window
+            .showErrorMessage(
+              `OpenSCAD render failed: ${msg.split("\n")[0]}`,
+              "Show Output",
+            )
+            .then((choice) => {
+              if (choice === "Show Output") {
+                // The output channel is named "OpenSCAD Preview" — reveal it.
+                // We can't reference it directly here, but the user can open it
+                // from View > Output and select "OpenSCAD Preview".
+                window.showInformationMessage(
+                  'Open the Output panel and select "OpenSCAD Preview" from the dropdown to see the full error.',
+                );
+              }
+            });
+        }
 
         // Also forward the first line of the error to the webview log panel.
         if (this.isWebviewReady) {
@@ -306,23 +312,24 @@ export class ScadWebviewPanel {
   }
 
   private async exportModel() {
-    const format = await window.showQuickPick(
-      [
-        {
-          value: ModelFormat.ThreeMF,
-          label: "3MF",
-          description: "Supports colors but requires OpenSCAD Nightly.",
-        },
-        {
-          value: ModelFormat.STL,
-          label: "STL",
-          description: "Universally supported.",
-        },
-      ] as const,
+    const formats = this.options.exportFormats ?? [
       {
-        title: "Select Export Format",
+        value: ModelFormat.ThreeMF,
+        label: "3MF",
+        description: "Supports colors but requires OpenSCAD Nightly.",
       },
-    );
+      {
+        value: ModelFormat.STL,
+        label: "STL",
+        description: "Universally supported.",
+      },
+    ];
+    const format =
+      formats.length === 1
+        ? formats[0]
+        : await window.showQuickPick(formats, {
+            title: "Select Export Format",
+          });
 
     if (!format) {
       return; // User cancelled
@@ -334,7 +341,10 @@ export class ScadWebviewPanel {
     const appendix = activeSetName ? ` - ${activeSetName}` : "";
 
     const defaultUri = Uri.file(
-      this.session.documentUri.fsPath.replace(/\.scad$/i, `${appendix}.${format.value}`),
+      this.session.documentUri.fsPath.replace(
+        this.options.sourceExtension ?? /\.scad$/i,
+        `${appendix}.${format.value}`,
+      ),
     );
 
     const filters = {
@@ -380,7 +390,9 @@ export class ScadWebviewPanel {
           cancellable: false,
         },
         async () => {
-          const config = workspace.getConfiguration("openscad");
+          const config = workspace.getConfiguration(
+            this.options.configSection ?? "openscad",
+          );
           const formatValue = config.get<string>("previewFormat") || "3mf";
           const format = formatValue === "stl" ? ModelFormat.STL : ModelFormat.ThreeMF;
           
