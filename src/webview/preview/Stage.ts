@@ -25,6 +25,7 @@ import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { ActiveTool } from "../contexts/ActiveToolContext";
 import { ModelContext } from "../contexts/ModelContext";
+import { ModelObject } from "../contexts/ModelObjectsContext";
 import { ObjectProperties } from "../contexts/SelectedObjectContext";
 import { SceneObjectType } from "../contexts/SceneContext";
 import {
@@ -85,6 +86,13 @@ export class Stage {
   private xrayPass: XRayPass;
 
   private modelGroup: Group;
+  // The loaded model's top-level objects by name, and the names the user
+  // hid. Only shown objects are in modelGroup, so tools, cross-sections and
+  // bounds skip the rest. Hidden names stay hidden across renders.
+  private modelObjects = new Map<string, Object3D[]>();
+  private hiddenModelObjects = new Set<string>();
+  private onModelObjectsChange: ((objects: ModelObject[]) => void) | null =
+    null;
   private framedFirstModel = false;
   private axesWidget: AxesWidget;
   private viewOptions?: ViewOptionsContext;
@@ -292,6 +300,7 @@ export class Stage {
     }
 
     this.modelGroup.clear();
+    const loaded: Object3D[] = [];
 
     if (format === ModelFormat.ThreeMF) {
       const loader = new ThreeMFLoader();
@@ -316,7 +325,7 @@ export class Stage {
               this.materialManager.applyToGroup(group, this.viewOptions);
           }
         });
-        this.modelGroup.add(group);
+        loaded.push(...group.children);
       } catch (e) {
         console.error("Failed to parse 3MF:", e);
       }
@@ -330,13 +339,58 @@ export class Stage {
           fog: false,
         });
         const mesh = new Mesh(geometry, material);
-        this.modelGroup.add(mesh);
-        if (this.viewOptions)
-          this.materialManager.applyToGroup(this.modelGroup, this.viewOptions);
+        loaded.push(mesh);
       } catch (e) {
         console.error("Failed to parse STL:", e);
       }
     }
+
+    this.setModelObjects(loaded);
+  }
+
+  /** Shows or hides every model object with this name. */
+  public setModelObjectVisible(name: string, visible: boolean) {
+    if (!this.modelObjects.has(name)) return;
+    if (visible) this.hiddenModelObjects.delete(name);
+    else this.hiddenModelObjects.add(name);
+    this.modelGroup.clear();
+    this.showModelObjects();
+  }
+
+  /** Calls back with the model's objects now and after every load. */
+  public setModelObjectsCallback(cb: (objects: ModelObject[]) => void): void {
+    this.onModelObjectsChange = cb;
+    cb(this.listModelObjects());
+  }
+
+  private listModelObjects(): ModelObject[] {
+    return Array.from(this.modelObjects.keys(), (name) => ({
+      name,
+      visible: !this.hiddenModelObjects.has(name),
+    }));
+  }
+
+  private setModelObjects(loaded: Object3D[]) {
+    this.modelObjects.clear();
+    loaded.forEach((object, i) => {
+      const name = object.name || `Object ${i + 1}`;
+      const named = this.modelObjects.get(name) ?? [];
+      named.push(object);
+      this.modelObjects.set(name, named);
+    });
+    this.showModelObjects();
+    this.onModelObjectsChange?.(this.listModelObjects());
+  }
+
+  /** Puts the shown model objects in modelGroup and refits everything that depends on it. */
+  private showModelObjects() {
+    for (const [name, objects] of this.modelObjects) {
+      if (!this.hiddenModelObjects.has(name)) {
+        this.modelGroup.add(...objects);
+      }
+    }
+    if (this.viewOptions)
+      this.materialManager.applyToGroup(this.modelGroup, this.viewOptions);
 
     // Pick an absorption coefficient so a ray traversing the model's full
     // diagonal in material reads as ~95% opaque (1 - exp(-3) ≈ 0.95).
