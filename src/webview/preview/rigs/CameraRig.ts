@@ -1,4 +1,5 @@
 import {
+  Box3,
   BufferGeometry,
   Color,
   DoubleSide,
@@ -12,6 +13,8 @@ import {
   Object3D,
   OrthographicCamera,
   PerspectiveCamera,
+  Sphere,
+  Vector3,
 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { CameraProperties } from "../../contexts/SelectedObjectContext";
@@ -19,6 +22,7 @@ import { CameraMode } from "../../contexts/ViewOptionsContext";
 import { Rig } from "./Rig";
 
 const GIZMO_DISPLAY_DISTANCE = 15;
+const START_POSITION = new Vector3(0, -200, 100);
 
 export class CameraRig extends Rig {
   public readonly id: string;
@@ -32,6 +36,9 @@ export class CameraRig extends Rig {
   private _userVisible = true;
   private _isActiveCamera = false;
   private color: Color;
+  // The box the camera was last framed on, and where that put the camera.
+  // Until the camera moves, a resize frames the box again.
+  private framing: { box: Box3; position: Vector3 } | null = null;
 
   constructor(
     id: string,
@@ -50,7 +57,7 @@ export class CameraRig extends Rig {
       0.1,
       1_000_000,
     );
-    this.persCamera.position.set(0, -200, 100);
+    this.persCamera.position.copy(START_POSITION);
 
     const aspect = width / (height || 1);
     const viewSize = 100;
@@ -144,6 +151,45 @@ export class CameraRig extends Rig {
     this.controls.update();
   }
 
+  /**
+   * Whether the camera is where it starts: not moved, and not restored.
+   * Orbit controls round the position a little on every update.
+   */
+  public isAtStart(): boolean {
+    return (
+      this.persCamera.position.distanceTo(START_POSITION) < 1e-6 &&
+      this.controls.target.length() < 1e-6
+    );
+  }
+
+  /**
+   * Looks at the box from the same direction as now, near enough that the
+   * box fills the view. The view may not have its final size yet, so the
+   * box stays framed through resizes until the camera moves.
+   */
+  public frame(box: Box3): void {
+    if (box.isEmpty() || !(this.persCamera.aspect > 0)) return;
+    const sphere = box.getBoundingSphere(new Sphere());
+    const halfHeight = MathUtils.degToRad(this.persCamera.fov / 2);
+    const halfWidth = Math.atan(Math.tan(halfHeight) * this.persCamera.aspect);
+    const distance =
+      (sphere.radius / Math.sin(Math.min(halfHeight, halfWidth))) * 1.1;
+    const direction = this.persCamera.position
+      .clone()
+      .sub(this.controls.target)
+      .normalize();
+    this.controls.target.copy(sphere.center);
+    this.persCamera.position
+      .copy(sphere.center)
+      .addScaledVector(direction, distance);
+    this.controls.update();
+    this.syncCameras();
+    this.framing = {
+      box: box.clone(),
+      position: this.persCamera.position.clone(),
+    };
+  }
+
   public resize(width: number, height: number): void {
     this.persCamera.aspect = width / height;
     this.persCamera.updateProjectionMatrix();
@@ -156,6 +202,15 @@ export class CameraRig extends Rig {
     this.orthCamera.updateProjectionMatrix();
 
     this.rebuildGizmoGeometry();
+
+    if (
+      this.framing &&
+      this.persCamera.position.distanceTo(this.framing.position) < 1e-6
+    ) {
+      this.frame(this.framing.box);
+    } else {
+      this.framing = null;
+    }
   }
 
   public setIsActiveCamera(active: boolean): void {
