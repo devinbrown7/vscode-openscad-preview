@@ -3,6 +3,7 @@ import {
   Color,
   FogExp2,
   Group,
+  Matrix4,
   Mesh,
   MeshStandardMaterial,
   Object3D,
@@ -32,6 +33,7 @@ import {
   RenderMode,
   ViewOptionsContext,
 } from "../contexts/ViewOptionsContext";
+import { FrameScheduler } from "./FrameScheduler";
 import { XRayPass } from "./passes/XRayPass";
 import { AmbientLightRig } from "./rigs/AmbientLightRig";
 import { CameraRig } from "./rigs/CameraRig";
@@ -71,6 +73,21 @@ const MODEL_CLIP_RENDER_ORDER = 15;
 const TRANSLATION_SNAP = 1;
 const ROTATION_SNAP = Math.PI / 36;
 
+// The smallest change in the camera's view matrix that counts as moving.
+const VIEW_EPSILON = 1e-6;
+
+// Canvas events that can change the picture: orbiting, tool hovers,
+// clicks and drags, and a lost WebGL context coming back.
+const REDRAW_EVENTS = [
+  "click",
+  "pointerdown",
+  "pointermove",
+  "pointerup",
+  "pointerleave",
+  "wheel",
+  "webglcontextrestored",
+] as const;
+
 export class Stage {
   private container: HTMLElement;
   private renderer: WebGLRenderer;
@@ -102,7 +119,10 @@ export class Stage {
   private gizmoJustInteracted = false;
   private snapEnabled = false;
 
-  private animationFrameId: number | null = null;
+  // Frames are drawn on demand: see requestRender().
+  private frames = new FrameScheduler(() => this.drawFrame());
+  // The active camera's view at the last frame, to tell when it moves.
+  private lastView = new Matrix4();
   private pointerDownX = 0;
   private pointerDownY = 0;
   private theme: Theme;
@@ -184,6 +204,7 @@ export class Stage {
       }, 0);
     });
     this.transformControls.addEventListener("change", () => {
+      this.requestRender();
       // Broadcast updated properties to the SelectedObjectContext on every frame
       if (this.selectedId) {
         const handle = this.handles.get(this.selectedId);
@@ -209,17 +230,25 @@ export class Stage {
       this.handlePointerMove,
     );
 
+    for (const type of REDRAW_EVENTS) {
+      this.renderer.domElement.addEventListener(type, this.requestRender, {
+        passive: true,
+      });
+    }
+
     // 8. Default tool
     this.toolManager.setBindings({ canvas: this.renderer.domElement });
     this.toolManager.switchTo(new SelectTool());
 
     // 9. Start
-    this.startAnimationLoop();
+    this.requestRender();
   }
 
   public dispose() {
-    if (this.animationFrameId !== null)
-      cancelAnimationFrame(this.animationFrameId);
+    this.frames.cancel();
+    for (const type of REDRAW_EVENTS) {
+      this.renderer.domElement.removeEventListener(type, this.requestRender);
+    }
 
     this.renderer.domElement.removeEventListener(
       "click",
@@ -245,6 +274,7 @@ export class Stage {
   }
 
   public updateTheme(theme: Theme) {
+    this.requestRender();
     this.theme = theme;
     this.scene.background = theme.background;
     this.environmentRig.setTheme(theme);
@@ -265,10 +295,12 @@ export class Stage {
       if (h instanceof CrossSectionRig) h.resize(width, height);
       if (h instanceof MeasurementRig) h.setResolution(size);
     });
-    this.renderFrame();
+    // Resizing clears the canvas, so draw now rather than show it blank.
+    this.frames.drawNow();
   }
 
   public applySettings(viewOptions: ViewOptionsContext) {
+    this.requestRender();
     this.viewOptions = viewOptions;
     this.environmentRig.setEnvironment(viewOptions.get("environment"));
     this.activeCameraRig.setMode(viewOptions.get("camera"));
@@ -281,6 +313,7 @@ export class Stage {
   }
 
   public loadModelData(modelContext: ModelContext) {
+    this.requestRender();
     const { format, base64Data } = modelContext;
     if (!base64Data || !format) return;
 
@@ -357,6 +390,7 @@ export class Stage {
   // ============= Scene Object Registry =============
 
   public addSceneObject(type: SceneObjectType, id: string): void {
+    this.requestRender();
     let handle: Rig | null = null;
 
     if (type === "camera") {
@@ -416,6 +450,7 @@ export class Stage {
   }
 
   public removeSceneObject(id: string): void {
+    this.requestRender();
     const handle = this.handles.get(id);
     if (!handle) return;
 
@@ -439,6 +474,7 @@ export class Stage {
   }
 
   public setActiveCamera(id: string): void {
+    this.requestRender();
     const handle = this.cameraHandles.get(id);
     if (!handle) return;
     this.activeCameraRig.getControls().enabled = false;
@@ -450,6 +486,7 @@ export class Stage {
   }
 
   public selectObject(id: string | null): void {
+    this.requestRender();
     // Deselect previous
     if (this.selectedId) {
       const prev = this.handles.get(this.selectedId);
@@ -479,6 +516,7 @@ export class Stage {
   }
 
   public setObjectVisible(id: string, visible: boolean): void {
+    this.requestRender();
     const handle = this.handles.get(id);
     if (!handle) return;
     handle.setVisible(visible);
@@ -487,6 +525,7 @@ export class Stage {
   }
 
   public setObjectActive(id: string, active: boolean): void {
+    this.requestRender();
     const handle = this.handles.get(id);
     if (!handle) return;
     handle.setActive(active);
@@ -542,6 +581,7 @@ export class Stage {
   }
 
   public setObjectProperty(id: string, key: string, value: number): void {
+    this.requestRender();
     this.handles.get(id)?.setProperty(key, value);
   }
 
@@ -591,7 +631,10 @@ export class Stage {
       this.renderer.domElement,
       this.theme.foreground,
     );
-    rig.getControls().addEventListener("change", () => this.onPersist?.());
+    rig.getControls().addEventListener("change", () => {
+      this.requestRender();
+      this.onPersist?.();
+    });
     this.cameraHandles.set(id, rig);
     this.handles.set(id, rig);
     this.scene.add(rig.getPerspectiveCamera());
@@ -604,6 +647,7 @@ export class Stage {
    * and selects it.
    */
   public addObject(rig: Rig, type: SceneObjectType): void {
+    this.requestRender();
     this.scene.add(rig.getSceneRoot());
     this.handles.set(rig.id, rig);
     this.onObjectRegistered?.(rig.id, type);
@@ -613,6 +657,7 @@ export class Stage {
   // ============= Tool =============
 
   public setActiveTool(tool: ActiveTool): void {
+    this.requestRender();
     this.gizmoMode =
       tool === ActiveTool.Move
         ? "translate"
@@ -663,13 +708,25 @@ export class Stage {
   }
 
   public setToolVariant(variant: string | null): void {
+    this.requestRender();
     this.toolVariant = variant;
   }
 
-  // ============= Animation loop =============
+  // ============= Rendering =============
 
-  private startAnimationLoop = () => {
-    this.animationFrameId = requestAnimationFrame(this.startAnimationLoop);
+  /**
+   * Asks for a frame. Nothing is drawn until something asks, so an idle
+   * view costs nothing. Every public method that changes the scene asks,
+   * and so do canvas input, orbit controls and the transform gizmo. A
+   * frame where the camera moved asks for one more, so motion that goes
+   * on by itself (damping) runs until it stops.
+   */
+  public requestRender = () => {
+    this.frames.request();
+  };
+
+  /** Draws one frame, and returns whether the camera moved since the last. */
+  private drawFrame(): boolean {
     this.activeCameraRig.update();
     this.axesWidget.update(this.activeCameraRig.activeCamera);
     const cam = this.activeCameraRig.getPerspectiveCamera();
@@ -689,7 +746,20 @@ export class Stage {
     }
     this.renderFrame();
     this.css2dRenderer.render(this.scene, this.activeCameraRig.activeCamera);
-  };
+
+    const camera = this.activeCameraRig.activeCamera;
+    const view = new Matrix4().multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse,
+    );
+    // Orbit controls nudge the camera by rounding on every update, so only
+    // a change bigger than that counts as moving.
+    const moved = view.elements.some(
+      (value, i) => Math.abs(value - this.lastView.elements[i]) > VIEW_EPSILON,
+    );
+    this.lastView.copy(view);
+    return moved;
+  }
 
   private renderFrame() {
     const camera = this.activeCameraRig.activeCamera;
