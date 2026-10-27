@@ -9,6 +9,10 @@ import {
   ActiveToolContext,
 } from "../contexts/ActiveToolContext";
 import { modelContext, ModelContext } from "../contexts/ModelContext";
+import {
+  modelObjectsContext,
+  ModelObjectsContext,
+} from "../contexts/ModelObjectsContext";
 import { PanelContext, panelContext } from "../contexts/PanelContext";
 import {
   parameterContext,
@@ -145,6 +149,21 @@ export class App extends LitElement {
     loadingMessage: "Rendering SCAD...",
     export: bridge.exportModel,
     sendToSlicer: bridge.sendToSlicer,
+  };
+
+  @provide({ context: modelObjectsContext })
+  @state()
+  modelObjectsContextValue: ModelObjectsContext = {
+    objects: [],
+    setVisible: (name: string, visible: boolean) => {
+      this.modelObjectsContextValue = {
+        ...this.modelObjectsContextValue,
+        objects: this.modelObjectsContextValue.objects.map((o) =>
+          o.name === name ? { ...o, visible } : o,
+        ),
+      };
+      this.previewEl?.stage?.setModelObjectVisible(name, visible);
+    },
   };
 
   @provide({ context: activeToolContext })
@@ -308,8 +327,18 @@ export class App extends LitElement {
   }
 
   private _stageWired = false;
+  private _modelObjectsWired = false;
 
   updated() {
+    if (!this._modelObjectsWired && this.previewEl?.stage) {
+      this._modelObjectsWired = true;
+      this.previewEl.stage.setModelObjectsCallback((objects) => {
+        this.modelObjectsContextValue = {
+          ...this.modelObjectsContextValue,
+          objects,
+        };
+      });
+    }
     if (!this._stageWired && this.previewEl?.stage && this.sceneLoaded) {
       this._stageWired = true;
       this.previewEl.stage.setSelectionCallbacks(

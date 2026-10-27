@@ -7,6 +7,11 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, query, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import {
+  ModelObject,
+  modelObjectsContext,
+  ModelObjectsContext,
+} from "../../contexts/ModelObjectsContext";
+import {
   SceneContext,
   sceneContext,
   SceneObjectDescriptor,
@@ -127,11 +132,23 @@ export class SceneTree extends LitElement {
     .object-row:not(:hover) .remove-button {
       display: none;
     }
+
+    .object-row.model-object {
+      cursor: default;
+    }
+
+    .object-row.hidden .object-name {
+      opacity: 0.5;
+    }
   `;
 
   @consume({ context: sceneContext, subscribe: true })
   @state()
   private sceneContext!: SceneContext;
+
+  @consume({ context: modelObjectsContext, subscribe: true })
+  @state()
+  private modelObjectsContext!: ModelObjectsContext;
 
   @query("vscode-context-menu")
   private addMenu!: VscodeContextMenu;
@@ -157,9 +174,38 @@ export class SceneTree extends LitElement {
         </div>
       </div>
       <div class="object-list">
+        ${this.modelObjectsContext?.objects.map((obj) =>
+          this.renderModelObjectRow(obj),
+        )}
         ${this.sceneContext?.objects.length
           ? this.sceneContext.objects.map((obj) => this.renderRow(obj))
           : nothing}
+      </div>
+    `;
+  }
+
+  /** A top-level object of the model: shown or hidden, never removed. */
+  private renderModelObjectRow(obj: ModelObject) {
+    return html`
+      <div
+        class=${classMap({
+          "object-row": true,
+          "model-object": true,
+          hidden: !obj.visible,
+        })}
+      >
+        <vscode-icon name="package"></vscode-icon>
+        <span class="object-name" title=${obj.name}>${obj.name}</span>
+        <vscode-toolbar-button
+          icon="eye"
+          label=${obj.visible ? "Hide" : "Show"}
+          toggleable
+          .checked=${obj.visible}
+          @change=${(e: Event) => {
+            e.stopPropagation();
+            this.modelObjectsContext.setVisible(obj.name, !obj.visible);
+          }}
+        ></vscode-toolbar-button>
       </div>
     `;
   }
