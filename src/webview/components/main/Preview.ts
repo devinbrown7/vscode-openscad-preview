@@ -198,7 +198,7 @@ export class Preview extends LitElement {
 
   render() {
     return html`
-      ${this.modelContext?.isLoading || !this.modelContext?.base64Data
+      ${(this.modelContext?.isLoading ?? true)
         ? html`
             <div id="loading-overlay">
               <div class="spinner"></div>
