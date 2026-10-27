@@ -52,11 +52,14 @@ export class SelectTool implements Tool {
       font-size: 11px;
       font-family: monospace;
       border-radius: 3px;
-      transform: translate(-50%, -150%);
+      margin-top: -16px;
       white-space: nowrap;
       pointer-events: none;
     `;
     this.label = new CSS2DObject(el);
+    // The renderer sets the transform, so anchor the bottom center at the
+    // pointer and lift it with a margin, clear of the cursor.
+    this.label.center.set(0.5, 1);
     this.label.visible = false;
   }
 
