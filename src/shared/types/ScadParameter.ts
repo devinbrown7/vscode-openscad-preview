@@ -1,5 +1,7 @@
 interface ParameterMetadata {
   name: string;
+  /** The text shown for the parameter. Without it, the name in words. */
+  label?: string;
   description?: string;
   group?: string;
 }

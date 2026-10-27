@@ -143,7 +143,8 @@ export class Parameters extends LitElement {
 
               return html`
                 <scad-field
-                  label=${formatParameterName(parameter.name, groupName)}
+                  label=${parameter.label ??
+                  formatParameterName(parameter.name, groupName)}
                   title=${parameter.description}
                 >
                   ${isOverridden
