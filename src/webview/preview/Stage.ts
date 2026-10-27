@@ -42,6 +42,7 @@ import { PointLightRig } from "./rigs/PointLightRig";
 import { Rig } from "./rigs/Rig";
 import { SpotLightRig } from "./rigs/SpotLightRig";
 import { MaterialManager } from "./managers/MaterialManager";
+import { MeshObjectManager } from "./managers/MeshObjectManager";
 import { ToolManager } from "./managers/ToolManager";
 import { CrossSectionRig } from "./rigs/CrossSectionRig";
 import { EnvironmentManager } from "./managers/EnvironmentManager";
@@ -82,6 +83,7 @@ export class Stage {
   private activeCameraRig!: CameraRig;
   private environmentRig: EnvironmentManager;
   private materialManager: MaterialManager;
+  private meshObjects = new MeshObjectManager();
   private toolManager: ToolManager;
   private xrayPass: XRayPass;
 
@@ -251,6 +253,7 @@ export class Stage {
     this.handles.clear();
     this.cameraHandles.clear();
     this.xrayPass.dispose();
+    this.meshObjects.clear();
 
     if (this.renderer) this.renderer.dispose();
   }
@@ -292,8 +295,14 @@ export class Stage {
   }
 
   public loadModelData(modelContext: ModelContext) {
-    const { format, base64Data } = modelContext;
+    const { format, base64Data, meshes } = modelContext;
+    if (meshes) {
+      this.modelGroup.clear();
+      this.setModelObjects(this.meshObjects.load(meshes, this.theme.additive));
+      return;
+    }
     if (!base64Data || !format) return;
+    this.meshObjects.clear();
 
     const binaryString = window.atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);

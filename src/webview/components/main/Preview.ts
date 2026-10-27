@@ -112,7 +112,7 @@ export class Preview extends LitElement {
       this.stage.applySettings(this.viewSettingsContext);
     }
 
-    if (this.modelContext?.base64Data) {
+    if (this.modelContext?.base64Data || this.modelContext?.meshes) {
       this.stage.loadModelData(this.modelContext);
     }
   }
