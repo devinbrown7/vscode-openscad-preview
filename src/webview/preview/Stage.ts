@@ -308,6 +308,9 @@ export class Stage {
                 else if (hex === "9dcb51")
                   mat.color.copy(this.theme.subtractive);
               }
+              // The loader reads a `#RRGGBBAA` display color's alpha into
+              // the opacity, but only a transparent material shows it.
+              mat.transparent = mat.opacity < 1;
             });
             if (!child.geometry.attributes.normal)
               child.geometry.computeVertexNormals();
