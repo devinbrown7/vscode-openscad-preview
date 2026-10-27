@@ -16,6 +16,7 @@ import * as os from "os";
 import * as path from "path";
 import * as cp from "child_process";
 import { ExtensionToWebviewMessage } from "../../shared/types/ExtensionToWebviewMessage";
+import { MeshObject } from "../../shared/types/MeshObject";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { SourceLocation } from "../../shared/types/SourceLocation";
 import { WebviewToExtensionMessage } from "../../shared/types/WebviewToExtensionMessage";
@@ -31,7 +32,13 @@ export class ScadWebviewPanel {
   private readonly panel: WebviewPanel;
   private disposables: Disposable[] = [];
   private isWebviewReady: boolean = false;
-  private lastRender: { base64Data: string; format: ModelFormat } | undefined;
+  private lastRender:
+    | { base64Data: string; format: ModelFormat }
+    | { objects: MeshObject[] }
+    | undefined;
+  // The keys of the mesh objects the webview has: those of the last mesh
+  // update it got. It keeps their geometry, so it isn't sent again.
+  private sentMeshKeys = new Set<string>();
   // The latest render's loading state and log. A render can start, log and
   // even fail before the webview is ready, so a new webview gets them too.
   private loadingState: LoadingState | undefined;
@@ -73,6 +80,8 @@ export class ScadWebviewPanel {
         switch (message.type) {
           case "ready":
             this.isWebviewReady = true;
+            // A new webview has no meshes yet.
+            this.sentMeshKeys.clear();
             this.pushInitialState();
             return;
           case "parameterChanged":
@@ -149,7 +158,15 @@ export class ScadWebviewPanel {
     );
 
     this.session.onRenderCompleted(
-      ({ buffer, format }) => {
+      (result) => {
+        if ("objects" in result) {
+          // The update itself clears the webview's loading state.
+          this.loadingState = undefined;
+          this.lastRender = { objects: result.objects };
+          this.postMeshes(result.objects);
+          return;
+        }
+        const { buffer, format } = result;
         if (buffer.toString() === "loading") {
           this.setLoadingState({
             type: "loadingState",
@@ -163,6 +180,8 @@ export class ScadWebviewPanel {
         this.loadingState = undefined;
         const base64Data = buffer.toString("base64");
         this.lastRender = { base64Data, format };
+        // The webview drops its meshes when it loads a model file.
+        this.sentMeshKeys.clear();
         this.postMessage({
           type: "update",
           content: base64Data,
@@ -327,7 +346,9 @@ export class ScadWebviewPanel {
     // both when the tab first loads (race condition where the render may have
     // completed before the webview was ready) and on tab re-focus (where
     // VSCode destroys and recreates the webview content).
-    if (this.lastRender) {
+    if (this.lastRender && "objects" in this.lastRender) {
+      this.postMeshes(this.lastRender.objects);
+    } else if (this.lastRender) {
       this.postMessage({
         type: "update",
         content: this.lastRender.base64Data,
@@ -343,6 +364,24 @@ export class ScadWebviewPanel {
     for (const message of this.renderLog) {
       this.postMessage({ type: "log", message });
     }
+  }
+
+  /**
+   * Sends mesh objects, each key's geometry once, and none for the keys
+   * the webview has. A webview that isn't ready gets them when it is.
+   */
+  private postMeshes(objects: MeshObject[]) {
+    if (!this.isWebviewReady) return;
+    const sent = new Set(this.sentMeshKeys);
+    this.postMessage({
+      type: "updateMeshes",
+      objects: objects.map(({ geometry, ...object }) => {
+        if (sent.has(object.key)) return object;
+        sent.add(object.key);
+        return { ...object, geometry };
+      }),
+    });
+    this.sentMeshKeys = new Set(objects.map((o) => o.key));
   }
 
   private setLoadingState(state: LoadingState) {

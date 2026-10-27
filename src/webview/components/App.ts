@@ -145,6 +145,7 @@ export class App extends LitElement {
   modelContext: ModelContext = {
     format: null,
     base64Data: null,
+    meshes: null,
     isLoading: true,
     loadingMessage: "Rendering SCAD...",
     export: bridge.exportModel,
@@ -423,11 +424,21 @@ export class App extends LitElement {
             ...this.modelContext,
             format: message.format,
             base64Data: message.content,
+            meshes: null,
             isLoading: false,
           };
         } else {
           bridge.reportError("No content in update message");
         }
+        break;
+      case "updateMeshes":
+        this.modelContext = {
+          ...this.modelContext,
+          format: null,
+          base64Data: null,
+          meshes: message.objects,
+          isLoading: false,
+        };
         break;
       case "updateParameters":
         if (message.parameters) {

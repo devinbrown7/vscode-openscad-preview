@@ -1,3 +1,4 @@
+import { MeshObjectUpdate } from "./MeshObjectUpdate";
 import { ModelFormat } from "./ModelFormat";
 import { ScadParameter } from "./ScadParameter";
 
@@ -9,6 +10,7 @@ export type ExtensionToWebviewMessage =
       content: string; // base64 payload
       format: ModelFormat;
     }
+  | { type: "updateMeshes"; objects: MeshObjectUpdate[] }
   | {
       type: "updateParameters";
       parameters: ScadParameter[];
