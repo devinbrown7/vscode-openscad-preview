@@ -1,13 +1,16 @@
 import { Event, Uri } from "vscode";
+import { MeshObject } from "../../shared/types/MeshObject";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { ScadParameter } from "../../shared/types/ScadParameter";
 import { SourceLocation } from "../../shared/types/SourceLocation";
 
-/** A finished render: the model file and its format. */
-export interface RenderResult {
-  buffer: Buffer;
-  format: ModelFormat;
-}
+/**
+ * A finished render: the model file and its format, or the model's
+ * objects as meshes, for a session that makes its own.
+ */
+export type RenderResult =
+  | { buffer: Buffer; format: ModelFormat }
+  | { objects: MeshObject[] };
 
 export interface ParametersChangedEvent {
   parameters: ScadParameter[];
