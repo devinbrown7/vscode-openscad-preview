@@ -87,3 +87,49 @@ test("MeshObjectManager - keeps the geometry of keys it has, frees the rest", ()
     console.error = originalError;
   }
 });
+
+test("MeshObjectManager - normals are continuous across a material boundary", () => {
+  // A 10 sided tube, half of it in each material.
+  const sides = 40;
+  const positions: number[] = [];
+  const indices: number[] = [];
+  const triangleMaterials: number[] = [];
+  for (let i = 0; i < sides; i++) {
+    const a = (i / sides) * 2 * Math.PI;
+    positions.push(Math.cos(a), Math.sin(a), 0, Math.cos(a), Math.sin(a), 1);
+  }
+  for (let i = 0; i < sides; i++) {
+    const b0 = i * 2;
+    const b1 = ((i + 1) % sides) * 2;
+    indices.push(b0, b1, b1 + 1, b0, b1 + 1, b0 + 1);
+    const m = i < sides / 2 ? 0 : 1;
+    triangleMaterials.push(m, m);
+  }
+  const manager = new MeshObjectManager();
+  const [object] = manager.load(
+    [
+      {
+        key: "t",
+        name: "Tube",
+        color: "#FFFFFF",
+        position: [0, 0, 0],
+        geometry: {
+          positions: new Float32Array(positions),
+          indices: new Uint32Array(indices),
+          materials: ["a", "b"],
+          triangleMaterials: new Uint32Array(triangleMaterials),
+        },
+      },
+    ],
+    gray,
+  );
+  // Every normal points straight out from the axis, even at the seam.
+  for (const mesh of meshes(object)) {
+    const p = mesh.geometry.getAttribute("position");
+    const n = mesh.geometry.getAttribute("normal");
+    for (let i = 0; i < p.count; i++) {
+      assert.ok(Math.abs(n.getX(i) - p.getX(i)) < 1e-5);
+      assert.ok(Math.abs(n.getY(i) - p.getY(i)) < 1e-5);
+    }
+  }
+});
