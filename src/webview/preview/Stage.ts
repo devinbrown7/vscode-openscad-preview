@@ -44,6 +44,7 @@ import { PointLightRig } from "./rigs/PointLightRig";
 import { Rig } from "./rigs/Rig";
 import { SpotLightRig } from "./rigs/SpotLightRig";
 import { MaterialManager } from "./managers/MaterialManager";
+import { applyCreasedNormals } from "./utilities/creasedNormals";
 import { MeshObjectManager } from "./managers/MeshObjectManager";
 import { ToolManager } from "./managers/ToolManager";
 import { CrossSectionRig } from "./rigs/CrossSectionRig";
@@ -366,8 +367,7 @@ export class Stage {
               // the opacity, but only a transparent material shows it.
               mat.transparent = mat.opacity < 1;
             });
-            if (!child.geometry.attributes.normal)
-              child.geometry.computeVertexNormals();
+            child.geometry = applyCreasedNormals(child.geometry);
             if (this.viewOptions)
               this.materialManager.applyToGroup(group, this.viewOptions);
           }
@@ -379,7 +379,7 @@ export class Stage {
     } else {
       const loader = new STLLoader();
       try {
-        const geometry = loader.parse(bytes.buffer);
+        const geometry = applyCreasedNormals(loader.parse(bytes.buffer));
         const material = new MeshStandardMaterial({
           color: this.theme.additive,
           flatShading: false,
