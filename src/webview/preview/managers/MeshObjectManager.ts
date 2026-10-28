@@ -8,6 +8,7 @@ import {
   Object3D,
 } from "three";
 import { MeshGeometry } from "../../../shared/types/MeshGeometry";
+import { creasedNormals } from "../utilities/creasedNormals";
 import { MeshObjectUpdate } from "../../../shared/types/MeshObjectUpdate";
 
 /** The triangles of one material of a mesh object. */
@@ -74,7 +75,6 @@ function buildObject(
       color,
       opacity,
       transparent: opacity < 1,
-      flatShading: true,
     });
     material.name = part.name;
     const mesh = new Mesh(part.geometry, material);
@@ -95,11 +95,13 @@ function parseColor(
 }
 
 /**
- * Splits a mesh into one geometry per material, without an index and
- * with flat normals, so every triangle shades flat as in a 3MF load.
+ * Splits a mesh into one geometry per material, without an index. Normals
+ * smooth curves and keep sharp edges (see creasedNormals); they are found
+ * on the whole mesh, so a curve does not show a seam where materials meet.
  */
 function splitByMaterial(mesh: MeshGeometry): MaterialPart[] {
   const { positions, indices, materials, triangleMaterials } = mesh;
+  const smooth = creasedNormals(positions, indices);
   const counts = new Uint32Array(materials.length);
   for (const m of triangleMaterials) counts[m]++;
   const position = Array.from(counts, (n) => new Float32Array(n * 9));
@@ -116,26 +118,7 @@ function splitByMaterial(mesh: MeshGeometry): MaterialPart[] {
       p[out + k * 3 + 1] = positions[v + 1];
       p[out + k * 3 + 2] = positions[v + 2];
     }
-    // The normal of the triangle: (b - a) × (c - a), normalized.
-    const ux = p[out + 3] - p[out];
-    const uy = p[out + 4] - p[out + 1];
-    const uz = p[out + 5] - p[out + 2];
-    const vx = p[out + 6] - p[out];
-    const vy = p[out + 7] - p[out + 1];
-    const vz = p[out + 8] - p[out + 2];
-    let nx = uy * vz - uz * vy;
-    let ny = uz * vx - ux * vz;
-    let nz = ux * vy - uy * vx;
-    const length = Math.hypot(nx, ny, nz) || 1;
-    nx /= length;
-    ny /= length;
-    nz /= length;
-    const n = normal[m];
-    for (let k = 0; k < 9; k += 3) {
-      n[out + k] = nx;
-      n[out + k + 1] = ny;
-      n[out + k + 2] = nz;
-    }
+    normal[m].set(smooth.subarray(t * 9, t * 9 + 9), out);
   }
   const parts: MaterialPart[] = [];
   materials.forEach((name, m) => {

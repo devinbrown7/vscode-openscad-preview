@@ -22,6 +22,8 @@ export interface ViewOptions {
   renderMode: RenderMode;
   camera: CameraMode;
   shadows: boolean;
+  /** Curves shade smooth; off shades every face flat. */
+  smoothShading: boolean;
   fogDensity: number;
 }
 

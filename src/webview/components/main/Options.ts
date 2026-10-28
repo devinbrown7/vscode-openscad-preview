@@ -157,6 +157,14 @@ export class Options extends LitElement {
         >
           <scad-icon name="shadows"></scad-icon>
         </scad-icon-button>
+        <scad-icon-button
+          label="Smooth Shading"
+          toggleable
+          .checked=${get("smoothShading")}
+          @change=${() => this.set("smoothShading", !get("smoothShading"))}
+        >
+          <scad-icon name="smooth-shading"></scad-icon>
+        </scad-icon-button>
       </div>
 
       <div class="group">

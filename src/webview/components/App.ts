@@ -96,6 +96,7 @@ export class App extends LitElement {
       renderMode: RenderMode.Solid,
       camera: CameraMode.Perspective,
       shadows: false,
+      smoothShading: true,
       fogDensity: 0,
     },
     get: (key) => this.viewSettingsContext.options[key],
