@@ -29,15 +29,10 @@ export class MaterialManager {
         );
 
         if ("flatShading" in mat) {
-          if (mat.userData.originalFlatShading === undefined) {
-            mat.userData.originalFlatShading = (mat as any).flatShading;
-          }
-          (mat as any).flatShading = viewSettings.is(
-            "renderMode",
-            RenderMode.Wireframe,
-          )
-            ? false
-            : mat.userData.originalFlatShading;
+          // Wireframe shows edges, so it shades smooth either way.
+          (mat as any).flatShading =
+            !viewSettings.get("smoothShading") &&
+            !viewSettings.is("renderMode", RenderMode.Wireframe);
         }
 
         if (mat.userData.originalColor !== undefined) {

@@ -120,6 +120,11 @@ const icons = {
     <path d="M 8 2 A 6 6 0 0 1 8 14 Z" fill="currentColor"/>
   `,
 
+  "smooth-shading": svg`
+    <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M 4 9 Q 8 5 12 9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+  `,
+
   // Environments
   "env-none": svg`
     <rect x="2" y="2" width="12" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/>
