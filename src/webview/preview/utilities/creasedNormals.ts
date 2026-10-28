@@ -1,7 +1,11 @@
 import { BufferAttribute, BufferGeometry } from "three";
 
-/** Surfaces that bend by less than this look smooth; sharper ones stay sharp. */
-export const DEFAULT_CREASE_ANGLE = (30 * Math.PI) / 180;
+/**
+ * Surfaces that bend by less than this look smooth; sharper ones stay sharp.
+ * A larger angle smooths coarser curves, but also spreads the shading of a
+ * gentle fillet or chamfer into the flat face beside it, so it is kept small.
+ */
+export const DEFAULT_CREASE_ANGLE = (20 * Math.PI) / 180;
 
 /**
  * Gives every vertex of every triangle a normal that averages the faces
@@ -12,7 +16,10 @@ export const DEFAULT_CREASE_ANGLE = (30 * Math.PI) / 180;
  * or is null when every three vertices make a triangle. Vertices at the same
  * position share their faces, whether or not they share an index. The result
  * holds three normals per triangle, in the order of the triangle corners.
- * Cost is linear in the triangle count (about 0.5 s for a million triangles).
+ * Cost is linear in the triangle count, and a little higher for an unindexed
+ * mesh (an STL or a 3MF), which has three times the vertices to weld: about
+ * 0.4 s for a million indexed triangles and 0.55 s unindexed. It runs on the
+ * main thread.
  */
 export function creasedNormals(
   positions: ArrayLike<number>,
