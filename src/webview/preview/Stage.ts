@@ -1,4 +1,5 @@
 import {
+  BufferGeometry,
   Box3,
   Color,
   FogExp2,
@@ -318,6 +319,8 @@ export class Stage {
       const loader = new ThreeMFLoader();
       try {
         const group = loader.parse(bytes.buffer);
+        // Build items may share one geometry; give each geometry normals once.
+        const smoothed = new Map<BufferGeometry, BufferGeometry>();
         group.traverse((child) => {
           if (child instanceof Mesh) {
             const materials = Array.isArray(child.material)
@@ -331,7 +334,14 @@ export class Stage {
                   mat.color.copy(this.theme.subtractive);
               }
             });
-            child.geometry = applyCreasedNormals(child.geometry);
+            const original = child.geometry;
+            let geometry = smoothed.get(original);
+            if (!geometry) {
+              geometry = applyCreasedNormals(original);
+              smoothed.set(original, geometry);
+              if (geometry !== original) original.dispose();
+            }
+            child.geometry = geometry;
             if (this.viewOptions)
               this.materialManager.applyToGroup(group, this.viewOptions);
           }
