@@ -95,3 +95,53 @@ test("applyCreasedNormals - unindexes and sets normals", () => {
   assert.strictEqual(result.index, null);
   assert.strictEqual(result.getAttribute("normal").count, 36);
 });
+
+/** Two unit squares sharing an edge, the second bent up by `degrees`. */
+function fold(degrees: number) {
+  const r = (degrees * Math.PI) / 180;
+  const positions = new Float32Array([
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    1,
+    0,
+    1 + Math.cos(r),
+    0,
+    Math.sin(r),
+    1 + Math.cos(r),
+    1,
+    Math.sin(r),
+  ]);
+  const indices = new Uint32Array([0, 1, 2, 0, 2, 3, 1, 4, 5, 1, 5, 2]);
+  return { positions, indices };
+}
+
+test("creasedNormals - an edge just under the crease angle smooths", () => {
+  const { positions, indices } = fold(19);
+  const normals = creasedNormals(positions, indices);
+  // Corner 0 of the first triangle sits off the edge; corner 1 sits on it.
+  assert.ok(normals[2] > 0.999999);
+  assert.ok(normals[3 + 2] < 0.999);
+});
+
+test("creasedNormals - an edge just over the crease angle stays sharp", () => {
+  const { positions, indices } = fold(21);
+  const normals = creasedNormals(positions, indices);
+  assert.ok(normals[3 + 2] > 0.999999);
+});
+
+test("creasedNormals - degenerate triangles give finite normals", () => {
+  const positions = new Float32Array([0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 0, 0]);
+  const normals = creasedNormals(
+    positions,
+    new Uint32Array([0, 1, 2, 0, 0, 3]),
+  );
+  for (const n of normals) assert.ok(Number.isFinite(n));
+});
