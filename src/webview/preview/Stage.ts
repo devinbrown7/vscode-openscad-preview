@@ -150,6 +150,7 @@ export class Stage {
   private onPersist: (() => void) | null = null;
 
   private onOpenMaterial: ((material: HoveredMaterial) => void) | null = null;
+  private onCopyText: ((text: string) => void) | null = null;
 
   constructor(container: HTMLElement, theme: Theme) {
     this.container = container;
@@ -345,6 +346,7 @@ export class Stage {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
+    this.toolManager.activeTool?.reset?.();
     this.modelGroup.clear();
     const loaded: Object3D[] = [];
 
@@ -715,6 +717,10 @@ export class Stage {
     this.onOpenMaterial = cb;
   }
 
+  public setCopyTextCallback(cb: (text: string) => void): void {
+    this.onCopyText = cb;
+  }
+
   private createCameraRig(id: string): CameraRig {
     const size = this.renderer.getSize(new Vector2());
     const rig = new CameraRig(
@@ -808,6 +814,7 @@ export class Stage {
       scene: this.scene,
       color: this.theme.accent,
       openMaterial: (material) => this.onOpenMaterial?.(material),
+      copyText: (text) => this.onCopyText?.(text),
     });
   }
 

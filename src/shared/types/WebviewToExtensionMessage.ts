@@ -16,4 +16,5 @@ export type WebviewToExtensionMessage =
   | { type: "persistScene"; snapshot: unknown }
   | { type: "openLocation"; location: SourceLocation }
   | { type: "openMaterial"; object: string; material: string }
+  | { type: "copyText"; text: string }
   | { type: "error"; message: string };

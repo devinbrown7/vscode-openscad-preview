@@ -20,6 +20,7 @@ import { MeshObject } from "../../shared/types/MeshObject";
 import { ModelFormat } from "../../shared/types/ModelFormat";
 import { SourceLocation } from "../../shared/types/SourceLocation";
 import { WebviewToExtensionMessage } from "../../shared/types/WebviewToExtensionMessage";
+import { copyText } from "../utilities/copyText";
 import { PreviewSession } from "../core/PreviewSession";
 import { PreviewPanelOptions } from "./PreviewPanelOptions";
 
@@ -134,6 +135,9 @@ export class ScadWebviewPanel {
             if (location) this.openLocation(location);
             return;
           }
+          case "copyText":
+            void copyText(env.clipboard, message.text);
+            return;
           case "error":
             window.showErrorMessage(`Preview Error: ${message.message}`);
             return;
