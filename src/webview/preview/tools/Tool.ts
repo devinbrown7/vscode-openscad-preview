@@ -19,4 +19,7 @@ export interface Tool {
   activate(bindings: ViewportBindings): void;
 
   deactivate(): void;
+
+  /** Drops state tied to the loaded model; called when it is replaced. */
+  reset?(): void;
 }
