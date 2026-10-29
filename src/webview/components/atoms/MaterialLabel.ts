@@ -9,10 +9,10 @@ declare global {
 
 /**
  * The label that names a material in the preview. Plain, it only shows the
- * name. Pinned, it also has a copy button and a dismiss button, and takes
+ * name. Pinned, the name is a copy button, and there is a dismiss button, and takes
  * pointer events so clicks on it don't reach the canvas behind it.
  *
- * Fires `copy` when the name or the copy button is clicked, and `dismiss`
+ * Fires `copy` when the name is clicked, and `dismiss`
  * when the × is.
  */
 @customElement("scad-material-label")
@@ -28,10 +28,18 @@ export class MaterialLabel extends LitElement {
       border-radius: 3px;
       white-space: nowrap;
       pointer-events: none;
+      /* The renderer sets the transform, so lift the label with a margin:
+         its bottom edge clears the tip of the cursor arrow. */
+      margin-top: -7px;
     }
 
     :host([pinned]) {
       pointer-events: auto;
+    }
+
+    .name {
+      display: inline-block;
+      min-width: 6ch;
     }
 
     button {
@@ -41,11 +49,6 @@ export class MaterialLabel extends LitElement {
       color: inherit;
       font: inherit;
       cursor: pointer;
-    }
-
-    .copy {
-      margin-left: 6px;
-      opacity: 0.7;
     }
 
     .dismiss {
@@ -61,7 +64,7 @@ export class MaterialLabel extends LitElement {
 
   @property() name = "";
   @property({ type: Boolean, reflect: true }) pinned = false;
-  /** Shows "copied" in place of the copy button, for a moment. */
+  /** Shows "copied" in place of the name, for a moment. */
   @property({ type: Boolean }) copied = false;
 
   constructor() {
@@ -80,9 +83,7 @@ export class MaterialLabel extends LitElement {
         title="Copy the material name"
         @click=${this.copy}
       >
-        ${this.name}</button
-      ><button class="copy" title="Copy the material name" @click=${this.copy}>
-        ${this.copied ? "copied" : "copy"}</button
+        ${this.copied ? "copied" : this.name}</button
       ><button
         class="dismiss"
         aria-label="Dismiss"

@@ -4,11 +4,11 @@
 
 ### Minor Changes
 
-- Click a named material in the preview to pin its highlight and label. The pinned label has a button to copy the material name and an **×** to dismiss it. Ctrl+click (Cmd+click on macOS) still opens the material's source.
+- Click a named material in the preview to pin its highlight and label. The pinned label has the material name as a button that copies it, and an **×** to dismiss it. Ctrl+click (Cmd+click on macOS) still opens the material's source.
 
 ### Patch Changes
 
-- The material label now sits just above the pointer instead of well clear of it.
+- The material label now sits a few pixels above the pointer instead of well clear of it.
 
 ## 0.7.0
 
