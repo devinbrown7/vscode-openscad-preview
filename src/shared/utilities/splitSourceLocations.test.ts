@@ -86,3 +86,17 @@ test("splitSourceLocations - leaves a line without a location alone", () => {
   ]);
   assert.deepStrictEqual(splitSourceLocations(""), []);
 });
+
+test("splitSourceLocations - reads an optional column", () => {
+  assert.deepStrictEqual(
+    splitSourceLocations("ERROR: bad in file a b.scad, line 3, column 7: x"),
+    [
+      { text: "ERROR: bad in file " },
+      {
+        text: "a b.scad, line 3, column 7",
+        location: { file: "a b.scad", line: 3, column: 7 },
+      },
+      { text: ": x" },
+    ],
+  );
+});

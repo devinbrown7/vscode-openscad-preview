@@ -1,10 +1,10 @@
 import { SourceLocation } from "../types/SourceLocation";
 
 /**
- * OpenSCAD's `in file <file>, line <n>`. The file may hold spaces and
- * commas, and older versions quote it.
+ * OpenSCAD's `in file <file>, line <n>`, with an optional `, column <m>`.
+ * The file may hold spaces and commas, and older versions quote it.
  */
-const LOCATION = /(in file )(["']?)(.+?)\2, line (\d+)/g;
+const LOCATION = /(in file )(["']?)(.+?)\2, line (\d+)(?:, column (\d+))?/g;
 
 export type TextPiece =
   | { text: string }
@@ -24,7 +24,11 @@ export function splitSourceLocations(line: string): TextPiece[] {
     last = (match.index ?? 0) + match[0].length;
     pieces.push({
       text: line.slice(start, last),
-      location: { file: match[3], line: Number(match[4]) },
+      location: {
+        file: match[3],
+        line: Number(match[4]),
+        ...(match[5] === undefined ? {} : { column: Number(match[5]) }),
+      },
     });
   }
   if (last < line.length) pieces.push({ text: line.slice(last) });
