@@ -65,13 +65,11 @@ export class SelectTool implements Tool {
   private tints = new TintTracker<Mesh>();
   private originals = new Map<Mesh, Color>();
   /** Where a plain left press began, and what was under it. */
-  private press: { x: number; y: number; target: HoveredHit | null } | null =
-    null;
+  private press: { x: number; y: number } | null = null;
   private copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private ctx: SelectToolContext) {
     const el = document.createElement("scad-material-label");
-    el.style.marginTop = "-7px";
     this.label = new CSS2DObject(el);
     // The renderer sets the transform, so anchor the bottom center at the
     // pointer and lift it 7px with a margin, so its bottom edge clears the
@@ -81,7 +79,6 @@ export class SelectTool implements Tool {
 
     const pinEl = document.createElement("scad-material-label");
     pinEl.pinned = true;
-    pinEl.style.marginTop = "-7px";
     pinEl.addEventListener("copy", this.copyPinned);
     pinEl.addEventListener("dismiss", this.dismissPinned);
     this.pinLabel = new CSS2DObject(pinEl);
@@ -134,6 +131,26 @@ export class SelectTool implements Tool {
       this.clear();
       return;
     }
+    const target = this.pick(e);
+    if (!target) {
+      this.clear();
+      return;
+    }
+    const { mesh, point } = target;
+    this.hovered = target;
+    this.syncTints();
+    // The pinned label already names the pinned material.
+    const showLabel = mesh !== this.pinned;
+    this.label.visible = showLabel;
+    if (showLabel) {
+      this.nameLabel(this.label, mesh);
+      this.label.position.copy(point);
+    }
+  };
+
+  /** The named mesh under the pointer, and where the ray hit it. */
+  private pick(e: PointerEvent): HoveredHit | null {
+    if (!this.canvas) return null;
     const rect = this.canvas.getBoundingClientRect();
     const pointer = new Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
@@ -144,33 +161,21 @@ export class SelectTool implements Tool {
       .intersectObject(this.ctx.modelGroup, true)
       .find(isVisible);
     const mesh = hit?.object instanceof Mesh ? hit.object : null;
-    if (!hit || !mesh || !isNamed(materialOf(mesh))) {
-      this.clear();
-      return;
-    }
-    this.hovered = { mesh, point: hit.point.clone() };
-    this.syncTints();
-    // The pinned label already names the pinned material.
-    const showLabel = mesh !== this.pinned;
-    this.label.visible = showLabel;
-    if (showLabel) {
-      this.nameLabel(this.label, mesh);
-      this.label.position.copy(hit.point);
-    }
-  };
+    if (!hit || !mesh || !isNamed(materialOf(mesh))) return null;
+    return { mesh, point: hit.point.clone() };
+  }
 
   private handleDown = (e: PointerEvent) => {
-    const hovered = this.hovered;
-    const material = this.hoveredMaterial;
-    this.clear();
     this.press = null;
     if (e.button !== 0) return;
     if (e.metaKey || e.ctrlKey) {
-      if (material) this.ctx.openMaterial(material);
+      const target = this.pick(e);
+      this.clear();
+      if (target) this.ctx.openMaterial(describe(target.mesh));
       return;
     }
     // Pinning waits for the pointer to come up in place: a drag orbits.
-    this.press = { x: e.clientX, y: e.clientY, target: hovered };
+    this.press = { x: e.clientX, y: e.clientY };
   };
 
   private handleUp = (e: PointerEvent) => {
@@ -179,7 +184,7 @@ export class SelectTool implements Tool {
     if (!press || e.button !== 0) return;
     if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > CLICK_SLOP)
       return;
-    this.pin(press.target);
+    this.pin(this.pick(e));
     this.ctx.requestRender?.();
   };
 
