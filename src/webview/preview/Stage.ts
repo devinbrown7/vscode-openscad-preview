@@ -815,6 +815,7 @@ export class Stage {
       color: this.theme.accent,
       openMaterial: (material) => this.onOpenMaterial?.(material),
       copyText: (text) => this.onCopyText?.(text),
+      requestRender: () => this.requestRender(),
     });
   }
 
